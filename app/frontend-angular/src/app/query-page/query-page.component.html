@@ -1,0 +1,143 @@
+<div class="query-container">
+  <div class="navigation-bar">
+    <button 
+      pButton 
+      type="button" 
+      label="Retour au scan" 
+      icon="pi pi-arrow-left"
+      (click)="goToScanPage()"
+      class="back-button">
+    </button>
+  </div>
+  
+  <div class="query-card">
+    <p-card header="Recherche intelligente" subheader="Recherchez vos documents par contenu sémantique" styleClass="modern-query-card">
+      <div class="query-form" style="display: flex; flex-direction: column; gap: 1.5rem;">
+        <div class="form-group">
+          <label for="queryText" style="font-weight: 600; display: block; margin-bottom: 0.5rem; color: var(--p-text-color);">Recherche sémantique</label>
+          <textarea 
+            id="queryText"
+            [(ngModel)]="queryText" 
+            pInputTextarea 
+            placeholder="Ex: Factures de l'année dernière, contrats signés..." 
+            rows="3"
+            class="full-width"
+            [disabled]="isLoading"
+            style="width: 100%; font-size: 1.1rem; padding: 1rem; border-radius: 8px; border: 1px solid var(--p-surface-300);">
+          </textarea>
+        </div>
+
+        <div class="settings-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; background: var(--p-surface-50); padding: 1.5rem; border-radius: 8px; border: 1px solid var(--p-surface-200);">
+          <div class="form-group">
+            <label for="topK" style="font-weight: 600; display: block; margin-bottom: 0.5rem; color: var(--p-text-color);">Volume de recherche (Top K)</label>
+            <input 
+              id="topK"
+              [(ngModel)]="topK" 
+              type="number" 
+              pInputText 
+              class="full-width"
+              [disabled]="isLoading"
+              min="1" 
+              max="1000"
+              style="width: 100%;">
+            <small style="color: var(--p-text-muted-color); display: block; margin-top: 0.25rem;">Nombre initial de documents trouvés (rapide).</small>
+          </div>
+
+          <div class="form-group">
+            <label for="rerankTopN" style="font-weight: 600; display: block; margin-bottom: 0.5rem; color: var(--p-text-color);">Résultats affinés (Top N)</label>
+            <input 
+              id="rerankTopN"
+              [(ngModel)]="rerankTopN" 
+              type="number" 
+              pInputText 
+              class="full-width"
+              [disabled]="isLoading"
+              min="1" 
+              max="100"
+              style="width: 100%;">
+            <small style="color: var(--p-text-muted-color); display: block; margin-top: 0.25rem;">Nombre de documents affichés après réorganisation (précis).</small>
+          </div>
+        </div>
+
+        <div class="button-group" style="display: flex; justify-content: flex-end;">
+          <button 
+            pButton 
+            type="button" 
+            label="Rechercher" 
+            icon="pi pi-search"
+            (click)="onQuery()"
+            [disabled]="isLoading || !queryText.trim()"
+            class="search-button"
+            style="padding: 0.75rem 2rem; font-size: 1.1rem; border-radius: 30px;">
+          </button>
+        </div>
+      </div>
+
+      <div class="loading-indicator" *ngIf="isLoading">
+        <p-progressBar mode="indeterminate"></p-progressBar>
+        <p>Processing your query...</p>
+      </div>
+
+      <!-- Search Results -->
+      <div class="results-section" *ngIf="queryResult && queryResult.documents && !isLoading" style="margin-top: 2rem;">
+        <h3 style="margin-bottom: 1rem; border-bottom: 2px solid var(--p-surface-200); padding-bottom: 0.5rem;">Résultats (Top {{ queryResult.returnedCount }})</h3>
+        
+        <div class="documents-list" style="display: flex; flex-direction: column; gap: 0.75rem;">
+          <div
+            *ngFor="let doc of queryResult.documents; let i = index"
+            class="document-card modern-result-card"
+            [class.selected]="selectedDocument?.chunkId === doc.chunkId"
+            (click)="viewDocument(doc)"
+            style="cursor: pointer; padding: 1rem; border: 1px solid var(--p-surface-300); border-radius: 8px; background: var(--p-surface-0); transition: all 0.2s ease;">
+            
+            <div class="document-header" style="display: flex; align-items: center; justify-content: space-between;">
+              <div style="display: flex; align-items: center; gap: 1rem;">
+                <span class="document-rank" style="background: var(--p-primary-color); color: white; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-weight: bold;">{{ i + 1 }}</span>
+                <span class="document-id" style="font-weight: 600; font-size: 1.1rem; color: var(--p-text-color);">{{ doc.documentId }}</span>
+              </div>
+              <span class="document-score" style="color: var(--p-text-muted-color); font-size: 0.9rem;">Pertinence: {{ doc.score | number:'1.1-2' }}</span>
+            </div>
+            
+            <!-- Result detail expands when clicked -->
+            <div class="document-expanded-view" *ngIf="selectedDocument?.chunkId === doc.chunkId" style="margin-top: 1.5rem; padding: 2rem 0; animation: fadeIn 0.3s ease; display: flex; flex-direction: column; align-items: center;">
+              
+              <div class="viewer-content" style="width: 100%; display: flex; justify-content: center;">
+                <div class="document-image-section" style="width: 100%; max-width: 700px;">
+                  <div class="image-frame" style="background: linear-gradient(135deg, var(--p-surface-100) 0%, var(--p-surface-50) 100%); border-radius: 12px; padding: 2rem; text-align: center; border: 3px solid var(--p-primary-color); min-height: 650px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 16px rgba(0,0,0,0.1);">
+                    <img
+                      [src]="highlightedImageUrl || selectedDocument?.imageUrl || 'assets/placeholder-doc.png'"
+                      [alt]="selectedDocument?.documentId"
+                      class="document-image"
+                      *ngIf="highlightedImageUrl || selectedDocument?.imageUrl"
+                      style="max-width: 100%; max-height: 600px; object-fit: contain; box-shadow: 0 4px 12px rgba(0,0,0,0.15); border-radius: 8px;"
+                    />
+                    <div class="image-placeholder" *ngIf="!highlightedImageUrl && !selectedDocument?.imageUrl" style="padding: 3rem 0; color: var(--p-text-muted-color); text-align: center; width: 100%;">
+                      <i class="pi pi-image" style="font-size: 4rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                      <p style="font-size: 1.1rem; margin: 0;">Image du document</p>
+                      <p style="font-size: 0.9rem; margin: 0.5rem 0 0 0; opacity: 0.7;">en cours de chargement...</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div style="margin-top: 1rem; display: flex; justify-content: flex-end;">
+                 <button
+                  pButton
+                  type="button"
+                  label="Fermer"
+                  icon="pi pi-times"
+                  (click)="closeDocumentViewer(); $event.stopPropagation()"
+                  class="p-button-text p-button-secondary">
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="error-section" *ngIf="errorMessage">
+        <p class="error-message">{{ errorMessage }}</p>
+      </div>
+    </p-card>
+  </div>
+</div>

@@ -1,0 +1,22 @@
+[project]
+name = "ocr-service"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Your Name", email = "you@example.com"}
+]
+readme = "README.md"
+requires-python = ">=3.10,<3.15"
+dependencies = [
+    "paddleocr[doc-parser] (>=3.4.0,<4.0.0)",
+    "paddlex[ocr] (>=3.4.2,<4.0.0)",
+    "opencv-python (>=4.13.0.92,<5.0.0.0)",
+    "torch (>=2.10.0,<3.0.0)",
+    "python-dotenv (>=1.2.2,<2.0.0)",
+    "urllib3 (>=2.0.0,<3.0.0)",
+    "charset-normalizer (>=3.0.0,<4.0.0)"
+]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"

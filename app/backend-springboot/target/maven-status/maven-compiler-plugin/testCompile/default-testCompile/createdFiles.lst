@@ -1,0 +1,3 @@
+com\example\scannerfeature\backend\DocumentUploadIntegrationTest.class
+com\example\scannerfeature\backend\controller\DocumentControllerTest.class
+com\example\scannerfeature\backend\service\DocumentStorageServiceTest.class

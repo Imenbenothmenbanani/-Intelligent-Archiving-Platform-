@@ -1,0 +1,606 @@
+<p-toast key="scanner-page" position="bottom-right" [preventDuplicates]="true"></p-toast>
+
+<section class="scanner-shell">
+  <div class="background-orb orb-a"></div>
+  <div class="background-orb orb-b"></div>
+
+  <div class="workspace-grid" [class.single-card-layout]="indexingInProgress || showHumanInLoop">
+    <!-- Control Card (Sidebar) -->
+    @if (!scanResult && !indexingInProgress && !showHumanInLoop) {
+      <p-card
+        header="Controles de numerisation"
+        subheader="Lancez un apercu rapide, puis capturez le fichier final seulement quand le rendu vous convient."
+        styleClass="control-card"
+      >
+        <div class="control-stack">
+          <div class="field-stack">
+            <label for="scannerSelect">Scanners disponibles</label>
+            <p-select
+              inputId="scannerSelect"
+              [options]="scannerOptions"
+              optionLabel="label"
+              optionValue="value"
+              optionDisabled="disabled"
+              [(ngModel)]="selectedScannerId"
+              (ngModelChange)="onScannerSelectionChange($event)"
+              placeholder="Selectionner un scanner"
+              [disabled]="loadingScanners || scanning || saving"
+              [loading]="loadingScanners"
+              [fluid]="true"
+              appendTo="body"
+            ></p-select>
+
+            @if (!selectedScannerChoice || !selectedScanner) {
+              <small class="hint-text">
+                Chargez les scanners depuis l'agent Windows local puis choisissez un peripherique.
+              </small>
+            }
+          </div>
+
+          <div class="field-stack">
+            <label for="sourceSelect">Source de numerisation</label>
+            <p-select
+              inputId="sourceSelect"
+              [options]="sourceOptions"
+              optionLabel="label"
+              optionValue="value"
+              [(ngModel)]="selectedScanSource"
+              (ngModelChange)="onSourceSelectionChange($event)"
+              [disabled]="loadingCapabilities || !selectedScannerId || scanning || saving"
+              [fluid]="true"
+            ></p-select>
+            <small class="hint-text">
+              La source proposee depend du scanner choisi et de ses capacites reelles.
+            </small>
+          </div>
+
+          <div class="field-stack">
+            <label for="colorModeSelect">Mode couleur</label>
+            <p-select
+              inputId="colorModeSelect"
+              [options]="colorModeOptions"
+              optionLabel="label"
+              optionValue="value"
+              [(ngModel)]="selectedColorMode"
+              [disabled]="loadingCapabilities || !selectedScannerId || scanning || saving"
+              [fluid]="true"
+            ></p-select>
+          </div>
+
+          <div class="field-stack">
+            <label for="outputSelect">Format de sortie final</label>
+            <p-select
+              inputId="outputSelect"
+              [options]="outputFormatOptions"
+              optionLabel="label"
+              optionValue="value"
+              [(ngModel)]="selectedOutputFormat"
+              [disabled]="loadingCapabilities || !selectedScannerId || scanning || saving"
+              [fluid]="true"
+            ></p-select>
+          </div>
+
+          <div class="field-stack">
+            <label for="dpiSelect">Qualite du scan final</label>
+            <p-select
+              inputId="dpiSelect"
+              [options]="finalDpiOptions"
+              optionLabel="label"
+              optionValue="value"
+              [(ngModel)]="selectedFinalDpi"
+              [disabled]="loadingCapabilities || !selectedScannerId || scanning || saving"
+              [fluid]="true"
+            ></p-select>
+            <small class="hint-text">
+              L'apercu utilise {{ previewDpi }} PPP en {{ previewOutputLabel.toLowerCase() }} avec un profil leger. Le scan final suit les valeurs supportees par le scanner.
+            </small>
+          </div>
+
+          <div class="field-stack checkbox-field">
+            <div class="checkbox-stack">
+              <div class="checkbox-row">
+                <p-checkbox
+                  inputId="cleanupToggle"
+                  [(ngModel)]="enableDocumentCleanup"
+                  [binary]="true"
+                  [disabled]="loadingCapabilities || scanning || saving"
+                ></p-checkbox>
+                <label for="cleanupToggle">Ameliorer le document</label>
+              </div>
+              <small class="hint-text">
+                Active un auto-cadrage, un redressement et un nettoyage du contraste pour les documents papier classiques.
+              </small>
+
+              <div class="checkbox-row">
+                <p-checkbox
+                  inputId="rotateToggle"
+                  [(ngModel)]="enableAutoRotate"
+                  [binary]="true"
+                  [disabled]="loadingCapabilities || scanning || saving"
+                ></p-checkbox>
+                <label for="rotateToggle">Corriger l orientation</label>
+              </div>
+              <small class="hint-text">
+                Tourne automatiquement les pages capturees de cote pour un rendu plus lisible.
+              </small>
+
+              <div class="checkbox-row">
+                <p-checkbox
+                  inputId="blankToggle"
+                  [(ngModel)]="skipBlankPages"
+                  [binary]="true"
+                  [disabled]="loadingCapabilities || scanning || saving"
+                ></p-checkbox>
+                <label for="blankToggle">Ignorer les pages blanches</label>
+              </div>
+              <small class="hint-text">
+                Pratique surtout avec le chargeur automatique pour eviter les pages vides dans le resultat final.
+              </small>
+
+              @if (canToggleDuplex) {
+                <div class="checkbox-row">
+                  <p-checkbox
+                    inputId="duplexToggle"
+                    [(ngModel)]="enableDuplex"
+                    [binary]="true"
+                    [disabled]="loadingCapabilities || scanning || saving"
+                  ></p-checkbox>
+                  <label for="duplexToggle">Utiliser le recto verso</label>
+                </div>
+                <small class="hint-text">
+                  Active le recto verso uniquement quand le chargeur automatique et le scanner le supportent.
+                </small>
+              }
+            </div>
+          </div>
+
+          <div
+            class="status-panel"
+            [class.status-success]="statusLevel === 'success'"
+            [class.status-error]="statusLevel === 'error'"
+            [class.status-info]="statusLevel === 'info'"
+          >
+            <span class="status-label">{{ statusPanelLabel }}</span>
+            <strong>{{ statusMessage }}</strong>
+          </div>
+
+
+          @if (hasBusyState) {
+            <div class="activity-strip">
+              <p-progressSpinner
+                strokeWidth="6"
+                [style]="{ width: '2.2rem', height: '2.2rem' }"
+              ></p-progressSpinner>
+              <div>
+                <strong>Traitement</strong>
+                <span>{{ activityLabel }}</span>
+              </div>
+              @if (canCancelActiveScan) {
+                <button
+                  pButton
+                  type="button"
+                  label="Interrompre"
+                  icon="pi pi-stop"
+                  severity="danger"
+                  [outlined]="true"
+                  styleClass="toolbar-button network-inline-button"
+                  (click)="cancelScan()"
+                ></button>
+              }
+            </div>
+          }
+
+          <div class="control-footer">
+            <div class="action-header">
+              <span class="status-label">Actions</span>
+              <strong>Suivez un parcours simple: charger, verifier, numeriser, enregistrer.</strong>
+              <small>{{ actionGuidance }}</small>
+            </div>
+
+            <div class="action-layout">
+              <div class="action-row utility-actions">
+                <button
+                  pButton
+                  type="button"
+                  label="Actualiser"
+                  icon="pi pi-refresh"
+                  severity="secondary"
+                  [outlined]="true"
+                  styleClass="toolbar-button"
+                  [loading]="loadingScanners"
+                  [disabled]="scanning || saving"
+                  (click)="refreshWorkspace(true)"
+                ></button>
+              </div>
+
+              <div class="action-row capture-actions">
+                <button
+                  pButton
+                  type="button"
+                  label="Apercu rapide"
+                  icon="pi pi-eye"
+                  severity="secondary"
+                  [outlined]="true"
+                  styleClass="action-button"
+                  [loading]="scanning && activeScanMode === 'preview'"
+                  [disabled]="!selectedScannerId || loadingCapabilities || scanning || saving"
+                  (click)="previewDocument()"
+                ></button>
+                <button
+                  pButton
+                  type="button"
+                  label="Numeriser"
+                  icon="pi pi-camera"
+                  severity="primary"
+                  [raised]="true"
+                  styleClass="action-button"
+                  [loading]="scanning && activeScanMode === 'final'"
+                  [disabled]="!selectedScannerId || loadingCapabilities || scanning || saving"
+                  (click)="scanDocument()"
+                ></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </p-card>
+    } @else if (scanResult && !indexingInProgress && !showHumanInLoop) {
+      <!-- OCR Options Card - replaces sidebar after scan -->
+      <p-card
+        header="OCR Options"
+        subheader="Configure OCR settings then click Index Document to start the pipeline."
+        styleClass="control-card ocr-options-card"
+      >
+        <div class="control-stack">
+          <section class="detail-panel" style="margin-bottom: 1.5rem;">
+            <div class="detail-header">
+              <span class="status-label">Details du scan</span>
+              <span class="meta-chip">{{ scanResult.provider || 'Inconnu' }}</span>
+            </div>
+
+            <div class="detail-grid">
+              <div class="detail-item">
+                <span>Nom du fichier</span>
+                <strong>{{ scanResult.fileName }}</strong>
+              </div>
+              <div class="detail-item">
+                <span>Format</span>
+                <strong>{{ scanResult.contentType }}</strong>
+              </div>
+              <div class="detail-item">
+                <span>Scanner</span>
+                <strong>{{ scanResult.scannerId }}</strong>
+              </div>
+              <div class="detail-item">
+                <span>Capture</span>
+                <strong>{{ captureModeDetailLabel }}</strong>
+              </div>
+              <div class="detail-item">
+                <span>Taille</span>
+                <strong>{{ scanFileSizeLabel }}</strong>
+              </div>
+              @if (scanTimingLabel) {
+                <div class="detail-item">
+                  <span>Duree</span>
+                  <strong>{{ scanTimingLabel }}</strong>
+                </div>
+              }
+            </div>
+          </section>
+
+          <div class="field-stack checkbox-field">
+            <div class="checkbox-stack" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+              <div class="checkbox-row">
+                <p-checkbox
+                  inputId="ocrOrientation"
+                  [(ngModel)]="ocrOptions.useOrientation"
+                  [binary]="true"
+                ></p-checkbox>
+                <label for="ocrOrientation">Orientation correction</label>
+              </div>
+
+              <div class="checkbox-row">
+                <p-checkbox
+                  inputId="ocrUnwarp"
+                  [(ngModel)]="ocrOptions.useUnwarp"
+                  [binary]="true"
+                ></p-checkbox>
+                <label for="ocrUnwarp">Unwarping</label>
+              </div>
+
+              <div class="checkbox-row">
+                <p-checkbox
+                  inputId="ocrLayout"
+                  [(ngModel)]="ocrOptions.useLayout"
+                  [binary]="true"
+                ></p-checkbox>
+                <label for="ocrLayout">Layout detection</label>
+              </div>
+
+              <div class="checkbox-row">
+                <p-checkbox
+                  inputId="ocrImageBlock"
+                  [(ngModel)]="ocrOptions.useOcrForImageBlock"
+                  [binary]="true"
+                ></p-checkbox>
+                <label for="ocrImageBlock">OCR inside image blocks</label>
+              </div>
+
+              <div class="checkbox-row">
+                <p-checkbox
+                  inputId="ocrFormat"
+                  [(ngModel)]="ocrOptions.useFormat"
+                  [binary]="true"
+                ></p-checkbox>
+                <label for="ocrFormat">Content formatting</label>
+              </div>
+
+              <div class="checkbox-row" style="grid-column: span 2;">
+                <p-checkbox
+                  inputId="ocrMergeTables"
+                  [(ngModel)]="ocrOptions.mergeTables"
+                  [binary]="true"
+                ></p-checkbox>
+                <label for="ocrMergeTables">Merge tables</label>
+              </div>
+            </div>
+          </div>
+
+          <div class="control-footer">
+            <div class="action-layout">
+              <button
+                pButton
+                type="button"
+                label="Index Document"
+                icon="pi pi-cloud-download"
+                styleClass="brand-accent-button action-button save-action"
+                [loading]="indexingInProgress"
+                (click)="triggerIndexingFromOptions()"
+              ></button>
+            </div>
+          </div>
+        </div>
+      </p-card>
+    }
+
+    <!-- Preview Card (Main Content) -->
+    @if (!showHumanInLoop) {
+      <p-card
+        class="preview-card-host"
+        [header]="indexingInProgress ? 'Indexation en cours' : 'Document numerise'"
+        [subheader]="indexingInProgress ? 'Traitement du document dans le pipeline d\'indexation' : 'Verifiez le document avant de l\'enregistrer cote serveur.'"
+        styleClass="preview-card"
+      >
+      <div class="preview-stack">
+        <!-- Action buttons for navigation -->
+        @if (!indexingInProgress && !showHumanInLoop) {
+          <div class="preview-topbar">
+            <div class="preview-copy">
+              <span class="preview-label">{{ captureLabel }}</span>
+              <strong>{{ scanResult ? scanResult.fileName : 'Aucun document en memoire' }}</strong>
+            </div>
+
+            @if (selectedScanner) {
+              <span class="file-pill">{{ selectedScanner.name }}</span>
+            }
+          </div>
+        }
+
+        @if (indexingInProgress) {
+          <div class="indexing-container">
+            <div class="preview-placeholder indexing-animation">
+              <div class="indexing-spinner">
+                <p-progressSpinner
+                  strokeWidth="6"
+                  [style]="{ width: '5rem', height: '5rem' }"
+                ></p-progressSpinner>
+              </div>
+              <strong>Indexation du document en cours</strong>
+              <p>Le document est en train d'être traité par le pipeline d'intelligence artificielle...</p>
+              <div class="indexing-steps">
+                <div class="step">
+                  <i class="pi pi-check-circle step-complete" style="color: var(--p-green-500);"></i>
+                  <span>Stockage</span>
+                </div>
+                <div class="step">
+                  @if (indexingStep > 0) {
+                    <i class="pi pi-check-circle step-complete" style="color: var(--p-green-500);"></i>
+                  } @else {
+                    <i class="pi pi-spin pi-spinner step-processing" style="color: var(--p-primary-500);"></i>
+                  }
+                  <span>OCR</span>
+                </div>
+                <div class="step">
+                  @if (indexingStep > 1) {
+                    <i class="pi pi-check-circle step-complete" style="color: var(--p-green-500);"></i>
+                  } @else if (indexingStep === 1) {
+                    <i class="pi pi-spin pi-spinner step-processing" style="color: var(--p-primary-500);"></i>
+                  } @else {
+                    <i class="pi pi-clock step-pending" style="color: var(--p-text-muted-color, #6c757d);"></i>
+                  }
+                  <span>Segmentation</span>
+                </div>
+                <div class="step">
+                  @if (indexingStep > 2) {
+                    <i class="pi pi-check-circle step-complete" style="color: var(--p-green-500);"></i>
+                  } @else if (indexingStep === 2) {
+                    <i class="pi pi-spin pi-spinner step-processing" style="color: var(--p-primary-500);"></i>
+                  } @else {
+                    <i class="pi pi-clock step-pending" style="color: var(--p-text-muted-color, #6c757d);"></i>
+                  }
+                  <span>Embedding</span>
+                </div>
+                <div class="step">
+                  @if (indexingStep > 3) {
+                    <i class="pi pi-check-circle step-complete" style="color: var(--p-green-500);"></i>
+                  } @else if (indexingStep === 3) {
+                    <i class="pi pi-spin pi-spinner step-processing" style="color: var(--p-primary-500);"></i>
+                  } @else {
+                    <i class="pi pi-clock step-pending" style="color: var(--p-text-muted-color, #6c757d);"></i>
+                  }
+                  <span>Indexation</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        } @else if (scanning) {
+          <div class="preview-placeholder preview-loading">
+            <p-progressSpinner
+              strokeWidth="6"
+              [style]="{ width: '3rem', height: '3rem' }"
+            ></p-progressSpinner>
+            <strong>{{ activeScanMode === 'preview' ? 'Apercu en cours' : 'Scan final en cours' }}</strong>
+            <p>
+              {{
+                activeScanMode === 'preview'
+                  ? 'Le scanner genere un apercu leger pour une verification rapide.'
+                  : 'Le scanner genere le fichier final qui sera pret pour l enregistrement.'
+              }}
+            </p>
+          </div>
+        } @else if (hasPreview() && isImagePreview() && !showHumanInLoop) {
+          <div class="preview-frame image-frame">
+            <a
+              class="image-preview-link"
+              [href]="fullResolutionUrl || previewUrl || '#'"
+              target="_blank"
+              rel="noopener noreferrer"
+              [attr.aria-label]="scanResult?.fileName || 'Ouvrir le document numerise'"
+            >
+              <img
+                class="image-preview"
+                [src]="previewUrl"
+                [alt]="scanResult?.fileName || 'Apercu du document numerise'"
+              />
+            </a>
+          </div>
+        } @else if (hasPreview() && isPdfPreview() && !showHumanInLoop) {
+          <div class="preview-placeholder pdf-preview">
+            <i class="pi pi-file-pdf preview-icon"></i>
+            <strong>Apercu PDF pret</strong>
+            <p>Ouvrez le PDF dans un nouvel onglet, puis enregistrez-le sur le serveur.</p>
+            <a
+              pButton
+              [href]="fullResolutionUrl || previewUrl || '#'"
+              target="_blank"
+              rel="noopener noreferrer"
+              label="Ouvrir le PDF"
+              icon="pi pi-external-link"
+              severity="contrast"
+              [outlined]="true"
+            ></a>
+          </div>
+        } @else {
+          <div class="preview-placeholder empty-preview">
+            <i class="pi pi-images preview-icon"></i>
+            <strong>Aucune capture pour le moment</strong>
+            <p>Chargez la liste depuis l'agent local puis numerisez un document pour afficher un apercu ici.</p>
+          </div>
+        }
+
+        @if (scanResult && !indexingInProgress && !showHumanInLoop) {
+          <div class="preview-footnote">
+            <span class="meta-chip meta-chip-strong">{{ scanResult.contentType }}</span>
+            <span>
+              {{
+                lastCaptureMode === 'final'
+                  ? "Le fichier final est pret pour l'enregistrement sur le serveur."
+                  : "Il s'agit seulement de l'apercu. Lancez le scan final avant l'enregistrement."
+              }}
+            </span>
+            @if (isImagePreview()) {
+              <a
+                class="preview-open-link"
+                [href]="fullResolutionUrl || previewUrl || '#'"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Ouvrir en pleine resolution
+              </a>
+            }
+          </div>
+        }
+
+        @if (!indexingInProgress && !showHumanInLoop) {
+          <div class="preview-navigation">
+            <button
+              pButton
+              type="button"
+              label="Aller à la recherche"
+              icon="pi pi-search"
+              severity="info"
+              [outlined]="true"
+              (click)="goToQueryPage()"
+            ></button>
+          </div>
+        }
+      </div>
+      </p-card>
+    }
+
+    @if (showHumanInLoop && scanResult) {
+      <p-card
+        class="human-loop-card-host"
+        header="Correction humaine"
+        subheader="Verifiez et corrigez les resultats OCR avant de continuer l'indexation."
+        styleClass="human-loop-card"
+      >
+        <div class="human-in-loop-interface">
+          <div class="hil-image-container">
+            <h4 class="hil-section-label">
+              <i class="pi pi-image"></i>
+              Apercu du document scanne
+            </h4>
+            <div class="hil-image-frame">
+              <a
+                class="image-preview-link"
+                [href]="fullResolutionUrl || previewUrl || '#'"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <img
+                  class="hil-preview-img"
+                  [src]="previewUrl"
+                  [alt]="scanResult.fileName || 'Document scan'"
+                />
+              </a>
+            </div>
+          </div>
+
+          <div class="hil-text-container">
+            <div class="hil-text-header">
+              <h4 class="hil-text-title">Resultats de l'OCR</h4>
+              <p class="hil-text-subtitle">
+                Verifiez et corrigez le texte extrait par l'intelligence artificielle avant l'indexation.
+              </p>
+            </div>
+            <textarea
+              [(ngModel)]="correctedText"
+              placeholder="Corrigez les erreurs du texte OCR ici..."
+              class="correction-textarea"
+              aria-label="Corriger le texte OCR"
+            ></textarea>
+            <div class="hil-actions">
+              <button
+                pButton
+                type="button"
+                label="Annuler"
+                icon="pi pi-times"
+                severity="secondary"
+                [outlined]="true"
+                (click)="cancelIndexing()"
+              ></button>
+              <button
+                pButton
+                type="button"
+                label="Confirmer et Indexer"
+                icon="pi pi-check"
+                severity="success"
+                (click)="confirmOCRResults()"
+              ></button>
+            </div>
+          </div>
+        </div>
+      </p-card>
+    }
+  </div>
+</section>

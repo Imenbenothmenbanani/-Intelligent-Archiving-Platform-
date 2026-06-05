@@ -1,0 +1,64 @@
+@import "primeicons/primeicons.css";
+
+:root {
+  color-scheme: light;
+  font-family: "Segoe UI Variable Text", "Aptos", "Segoe UI", sans-serif;
+  --st2i-blue-strong: #0057a8;
+  --st2i-blue: #0f5fbf;
+  --st2i-blue-deep: #07315f;
+  --st2i-red: #eb2d3a;
+  --st2i-red-deep: #c91d2b;
+  --st2i-ice: #f5f8fc;
+  --st2i-steel: #6f849c;
+  --st2i-ink: #10263f;
+  background:
+    radial-gradient(circle at top left, rgba(15, 95, 191, 0.2), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(235, 45, 58, 0.12), transparent 24%),
+    #071324;
+  color: #e2e8f0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  position: relative;
+  background:
+    linear-gradient(160deg, rgba(6, 18, 37, 0.99), rgba(7, 49, 95, 0.92)),
+    repeating-linear-gradient(
+      0deg,
+      rgba(217, 225, 235, 0.04),
+      rgba(217, 225, 235, 0.04) 1px,
+      transparent 1px,
+      transparent 42px
+    );
+  background-attachment: fixed;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(15, 95, 191, 0.18), transparent 24%),
+    radial-gradient(circle at 82% 70%, rgba(235, 45, 58, 0.12), transparent 22%);
+}
+
+button,
+select,
+input,
+textarea {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+}

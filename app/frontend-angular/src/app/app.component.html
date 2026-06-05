@@ -1,0 +1,15 @@
+<nav class="navbar">
+  <div class="nav-container">
+    <a routerLink="/" class="nav-logo">Document Archiving Platform</a>
+    <ul class="nav-menu">
+      <li class="nav-item">
+        <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}" class="nav-link">Scan Document</a>
+      </li>
+      <li class="nav-item">
+        <a routerLink="/query" routerLinkActive="active" class="nav-link">Search Documents</a>
+      </li>
+    </ul>
+  </div>
+</nav>
+
+<router-outlet />

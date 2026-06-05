@@ -1,0 +1,30 @@
+server:
+  port: 8081
+
+spring:
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 25MB
+
+app:
+  storage:
+    scan-folder: C:/app/scanned-documents
+    docs-bucket: docs
+    chunks-bucket: chunks
+  cors:
+    allowed-origins: http://localhost:4200,http://127.0.0.1:4200
+
+service:
+  ocr:
+    url: http://localhost:8000
+  chunk:
+    url: http://localhost:8001
+  embedding:
+    url: http://localhost:8002
+  storage:
+    url: http://localhost:8003
+  pipeline:
+    url: http://localhost:8082
+  opensearch:
+    url: http://localhost:9200

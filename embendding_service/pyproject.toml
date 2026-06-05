@@ -1,0 +1,29 @@
+[project]
+name = "embendding-service"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Your Name", email = "you@example.com"}
+]
+readme = "README.md"
+requires-python = ">=3.11,<3.15"
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.15"
+transformers = ">=4.40.0"
+numpy = ">=1.26.0"
+torch = { version = "2.5.1+cu121", source = "pytorch-gpu" }
+torchvision = { version = "0.20.1+cu121", source = "pytorch-gpu" }
+torchaudio = { version = "2.5.1+cu121", source = "pytorch-gpu" }
+opensearch-py = "^3.1.0"
+requests = "^2.32.5"
+python-dotenv = "^1.2.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[[tool.poetry.source]]
+name = "pytorch-gpu"
+url = "https://download.pytorch.org/whl/cu121"
+priority = "explicit"

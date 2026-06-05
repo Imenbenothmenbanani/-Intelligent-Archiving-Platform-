@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>IAP — Intelligent Archiving Platform</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;1,9..144,300&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+/* ─── Reset & Variables ──────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#0e0f11; --surface:#16181c; --border:#2a2d34;
+  --text:#e8e6e0; --muted:#6b6e78; --accent:#d4a843;
+  --accent2:#4a9eff; --danger:#e05252; --success:#52c97a;
+  --mono:'DM Mono',monospace; --serif:'Fraunces',Georgia,serif; --radius:6px;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--mono);font-size:13px;line-height:1.6;overflow-x:hidden;}
+
+/* ─── Shell ──────────────────────────────────────────────────────── */
+.shell{display:grid;grid-template-columns:200px 1fr;grid-template-rows:56px 1fr;height:100vh;}
+header{grid-column:1/-1;display:flex;align-items:center;gap:16px;padding:0 24px;border-bottom:1px solid var(--border);background:var(--bg);}
+.logo{font-family:var(--serif);font-size:18px;font-weight:600;color:var(--accent);letter-spacing:-.02em;}
+.logo span{color:var(--muted);font-weight:300;font-style:italic;}
+
+/* ─── Nav ────────────────────────────────────────────────────────── */
+nav{border-right:1px solid var(--border);padding:24px 0;display:flex;flex-direction:column;gap:2px;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 20px;cursor:pointer;color:var(--muted);transition:color .15s,background .15s;border-left:2px solid transparent;user-select:none;}
+.nav-item:hover{color:var(--text);background:#1c1e23;}
+.nav-item.active{color:var(--accent);border-left-color:var(--accent);background:#1c1e23;}
+.nav-icon{font-size:15px;opacity:.8;}.nav-label{font-size:12px;letter-spacing:.04em;text-transform:uppercase;}
+
+/* ─── Main ───────────────────────────────────────────────────────── */
+main{overflow-y:auto;padding:32px;display:flex;flex-direction:column;gap:24px;position:relative;}
+main.viz-active{padding:0;overflow:hidden;}
+.page{display:none;flex-direction:column;gap:24px;}
+.page.active{display:flex;}
+#page-viz.active{flex:1;height:100%;overflow:hidden;}
+.page-title{font-family:var(--serif);font-size:26px;font-weight:300;color:var(--text);letter-spacing:-.02em;}
+.page-title em{font-style:italic;color:var(--accent);}
+
+/* ─── Cards ──────────────────────────────────────────────────────── */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;}
+.card-label{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;}
+
+/* ─── OCR Options ────────────────────────────────────────────────── */
+.ocr-options-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;margin-bottom:4px;}
+.ocr-option{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;transition:border-color .15s,background .15s;user-select:none;}
+.ocr-option:hover{border-color:var(--muted);background:#1c1e23;}
+.ocr-option.active{border-color:var(--accent);background:rgba(212,168,67,.05);}
+.ocr-option input[type="checkbox"]{display:none;}
+.ocr-toggle{width:16px;height:16px;flex-shrink:0;border:1.5px solid var(--border);border-radius:3px;margin-top:1px;display:flex;align-items:center;justify-content:center;font-size:10px;transition:background .15s,border-color .15s;background:transparent;}
+.ocr-option.active .ocr-toggle{background:var(--accent);border-color:var(--accent);color:#000;}
+.ocr-text .opt-name{font-size:12px;color:var(--text);display:block;line-height:1.4;}
+.ocr-text .opt-desc{font-size:10px;color:var(--muted);display:block;margin-top:2px;line-height:1.5;}
+
+/* ─── Drop zone ──────────────────────────────────────────────────── */
+.drop-zone{border:1.5px dashed var(--border);border-radius:var(--radius);padding:40px 32px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;position:relative;}
+.drop-zone:hover,.drop-zone.drag-over{border-color:var(--accent);background:rgba(212,168,67,.04);}
+.drop-zone input[type="file"]{position:absolute;inset:0;opacity:0;cursor:pointer;}
+.drop-icon{font-size:28px;margin-bottom:10px;opacity:.4;}
+.drop-text{color:var(--muted);font-size:12px;}
+.drop-text strong{color:var(--text);}
+
+/* ─── Status bars ────────────────────────────────────────────────── */
+.status-bar{display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:var(--radius);font-size:12px;opacity:0;transform:translateY(4px);transition:opacity .25s,transform .25s;}
+.status-bar.show{opacity:1;transform:translateY(0);}
+.status-bar.info   {background:rgba(74,158,255,.1); border:1px solid rgba(74,158,255,.3); color:var(--accent2);}
+.status-bar.success{background:rgba(82,201,122,.1); border:1px solid rgba(82,201,122,.3); color:var(--success);}
+.status-bar.error  {background:rgba(224,82,82,.1);  border:1px solid rgba(224,82,82,.3);  color:var(--danger);}
+.spinner{width:14px;height:14px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ─── Steps ──────────────────────────────────────────────────────── */
+.steps{display:flex;gap:0;margin-bottom:4px;}
+.step{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;}
+.step::before{content:'';position:absolute;top:13px;left:50%;right:-50%;height:1px;background:var(--border);z-index:0;}
+.step:last-child::before{display:none;}
+.step-dot{width:26px;height:26px;border-radius:50%;border:1px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted);z-index:1;transition:background .3s,border-color .3s,color .3s;}
+.step.done .step-dot  {background:var(--success);border-color:var(--success);color:#000;}
+.step.active .step-dot{background:var(--accent); border-color:var(--accent); color:#000;animation:pulse 1.4s ease-in-out infinite;}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(212,168,67,.5);}50%{box-shadow:0 0 0 6px rgba(212,168,67,0);}}
+.step-label{font-size:10px;color:var(--muted);text-align:center;text-transform:uppercase;letter-spacing:.06em;}
+.step.active .step-label{color:var(--accent);}.step.done .step-label{color:var(--success);}
+
+/* ─── OCR Review ─────────────────────────────────────────────────── */
+.review-section{display:none;flex-direction:column;gap:16px;}
+.review-section.show{display:flex;}
+.review-split{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;}
+@media(max-width:900px){.review-split{grid-template-columns:1fr;}}
+.review-pane-label{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+.review-doc-preview{background:#0a0b0d;border:1px solid var(--border);border-radius:var(--radius);min-height:360px;display:flex;align-items:center;justify-content:center;overflow:auto;padding:8px;}
+.review-doc-preview canvas,.review-doc-preview img{max-width:100%;border-radius:3px;display:block;}
+.review-doc-placeholder{color:var(--muted);font-size:12px;text-align:center;}
+.ocr-blocks-wrap{border:1px solid var(--border);border-radius:var(--radius);background:#0a0b0d;min-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:0;}
+.ocr-block{display:flex;flex-direction:column;gap:4px;padding:12px 14px;border-bottom:1px solid #1e2028;transition:background .12s;}
+.ocr-block:last-child{border-bottom:none;}.ocr-block:hover{background:#131518;}
+.ocr-block-meta{display:flex;align-items:center;gap:8px;}
+.ocr-block-badge{font-size:9px;letter-spacing:.09em;text-transform:uppercase;padding:2px 7px;border-radius:3px;font-weight:500;flex-shrink:0;}
+.badge-text{background:rgba(82,201,122,.12);color:#52c97a;border:1px solid rgba(82,201,122,.25);}
+.badge-doc_title{background:rgba(212,168,67,.12);color:#d4a843;border:1px solid rgba(212,168,67,.25);}
+.badge-paragraph_title{background:rgba(212,168,67,.08);color:#c09830;border:1px solid rgba(212,168,67,.2);}
+.badge-image{background:rgba(74,158,255,.12);color:#4a9eff;border:1px solid rgba(74,158,255,.25);}
+.badge-header{background:rgba(150,150,180,.10);color:#9898b0;border:1px solid rgba(150,150,180,.2);}
+.badge-table{background:rgba(200,120,200,.10);color:#bb88bb;border:1px solid rgba(200,120,200,.2);}
+.badge-other{background:rgba(100,100,100,.10);color:var(--muted);border:1px solid var(--border);}
+.ocr-block-page{font-size:10px;color:var(--muted);margin-left:auto;}
+.ocr-block-content{width:100%;background:transparent;border:none;border-radius:3px;color:var(--text);font-family:var(--mono);font-size:12px;padding:4px 0;resize:vertical;line-height:1.7;transition:background .15s,padding .15s;min-height:28px;overflow:hidden;}
+.ocr-block-content:focus{outline:none;background:#1a1d22;padding:4px 8px;border-radius:3px;}
+.ocr-image-note{font-size:10px;color:var(--muted);font-style:italic;padding:2px 0;}
+.review-hint{font-size:11px;color:var(--muted);line-height:1.6;}
+
+/* ─── Buttons ────────────────────────────────────────────────────── */
+.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 18px;border-radius:var(--radius);border:1px solid transparent;font-family:var(--mono);font-size:12px;cursor:pointer;transition:opacity .15s,transform .1s;letter-spacing:.02em;}
+.btn:active{transform:scale(.97);}.btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn-primary{background:var(--accent);color:#000;font-weight:500;}.btn-primary:hover:not(:disabled){opacity:.88;}
+.btn-ghost{background:transparent;border-color:var(--border);color:var(--text);}.btn-ghost:hover:not(:disabled){border-color:var(--muted);}
+.btn-danger{background:transparent;border-color:rgba(224,82,82,.5);color:var(--danger);}.btn-danger:hover:not(:disabled){background:rgba(224,82,82,.08);border-color:var(--danger);}
+
+/* ─── Query ──────────────────────────────────────────────────────── */
+.query-wrap{display:flex;gap:10px;align-items:flex-start;}
+.query-input{flex:1;background:#0e0f11;border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:var(--mono);font-size:13px;padding:11px 14px;transition:border-color .2s;}
+.query-input:focus{outline:none;border-color:var(--accent);}
+.query-input::placeholder{color:var(--muted);}
+
+/* ─── Results ────────────────────────────────────────────────────── */
+.results-list{display:flex;flex-direction:column;gap:4px;}
+.result-item{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:border-color .2s;}
+.result-item:hover{border-color:var(--muted);}.result-item.open{border-color:var(--accent);}
+.result-header{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;background:var(--surface);transition:background .15s;user-select:none;}
+.result-header:hover{background:#1c1e23;}
+.result-rank{font-family:var(--serif);font-size:20px;font-weight:600;color:var(--accent);opacity:.5;width:24px;flex-shrink:0;font-style:italic;}
+.result-item.open .result-rank{opacity:1;}
+.result-info{flex:1;min-width:0;}
+.result-doc{font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.result-meta{font-size:10px;color:var(--muted);margin-top:2px;}
+.result-chevron{color:var(--muted);font-size:12px;transition:transform .2s;}
+.result-item.open .result-chevron{transform:rotate(180deg);}
+.doc-viewer{display:none;padding:16px;background:#0e0f11;border-top:1px solid var(--border);}
+.result-item.open .doc-viewer{display:block;}
+.doc-canvas-wrap{position:relative;display:inline-block;max-width:100%;}
+.doc-canvas-wrap canvas{display:block;max-width:100%;border-radius:4px;}
+.highlight-box{position:absolute;background:rgba(255,220,50,.32);border:2px solid rgba(255,200,30,.75);border-radius:3px;pointer-events:none;animation:hlPop .35s ease both;}
+@keyframes hlPop{from{opacity:0;transform:scale(.97);}to{opacity:1;transform:scale(1);}}
+.doc-image-wrap{position:relative;display:inline-block;max-width:100%;}
+.doc-image-wrap img{display:block;max-width:100%;border-radius:4px;}
+.viewer-loading{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;padding:24px 0;}
+.empty-hint{text-align:center;color:var(--muted);font-size:12px;padding:32px;}
+::-webkit-scrollbar{width:6px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+
+/* ════════════════════════════════════════════════════════════════════
+   VISUALIZATION PAGE
+   ════════════════════════════════════════════════════════════════════ */
+#viz-topbar{display:flex;align-items:center;gap:14px;padding:12px 24px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;flex-wrap:wrap;}
+#viz-topbar .page-title{font-size:19px;margin:0;flex:1;min-width:120px;}
+#viz-stats{display:flex;align-items:center;gap:14px;font-size:11px;color:var(--muted);flex-wrap:wrap;}
+#viz-stats .stat-item{display:flex;align-items:center;gap:5px;}
+
+/* Document legend */
+#viz-legend{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:10px;}
+.legend-item{display:flex;align-items:center;gap:4px;padding:2px 8px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);cursor:default;}
+.legend-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.legend-query{width:7px;height:7px;border-radius:50%;background:#ffffff;box-shadow:0 0 6px #fff;flex-shrink:0;}
+
+#viz-hint{font-size:10px;color:var(--muted);opacity:.55;white-space:nowrap;}
+#viz-canvas-wrap{flex:1;position:relative;overflow:hidden;background:var(--bg);cursor:grab;}
+#viz-canvas-wrap:active{cursor:grabbing;}
+#viz-canvas{display:block;width:100%!important;height:100%!important;}
+
+/* ── Tooltip ─────────────────────────────────────────────────────── */
+#viz-tooltip{position:absolute;pointer-events:none;opacity:0;transition:opacity .1s;z-index:20;max-width:290px;background:rgba(16,18,22,.97);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;font-size:11px;line-height:1.65;backdrop-filter:blur(10px);}
+#viz-tooltip.show{opacity:1;}
+.tt-badge{display:inline-block;font-size:9px;letter-spacing:.1em;text-transform:uppercase;padding:2px 7px;border-radius:3px;margin-bottom:5px;font-weight:500;}
+.tt-badge.chunk{background:rgba(212,168,67,.15);color:var(--accent);border:1px solid rgba(212,168,67,.3);}
+.tt-badge.query{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.25);}
+.tt-label{color:var(--text);margin-bottom:4px;word-break:break-word;}
+.tt-doc{color:var(--muted);font-size:10px;}
+.tt-meta{color:#444854;font-size:10px;margin-top:2px;}
+.tt-ttl{font-size:10px;color:var(--accent2);margin-top:3px;}
+
+/* ── Query flash notification ────────────────────────────────────── */
+#viz-query-flash{
+  position:absolute;top:16px;left:50%;transform:translateX(-50%);
+  background:rgba(16,18,22,.95);border:1px solid rgba(255,255,255,.25);
+  border-radius:20px;padding:7px 18px;
+  font-size:11px;color:#fff;white-space:nowrap;
+  pointer-events:none;opacity:0;z-index:30;
+  display:flex;align-items:center;gap:8px;
+  backdrop-filter:blur(12px);
+  transition:opacity .3s;
+  max-width:420px;overflow:hidden;text-overflow:ellipsis;
+}
+#viz-query-flash .qf-dot{width:6px;height:6px;border-radius:50%;background:#fff;flex-shrink:0;animation:qfPulse 1s ease-in-out infinite;}
+@keyframes qfPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,.5);}50%{box-shadow:0 0 0 5px rgba(255,255,255,0);}}
+#viz-query-flash.show{opacity:1;}
+
+/* ── Empty / loading ─────────────────────────────────────────────── */
+#viz-empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;pointer-events:none;color:var(--muted);text-align:center;}
+#viz-empty .big-icon{font-size:52px;opacity:.1;line-height:1;}
+#viz-empty .empty-title{font-family:var(--serif);font-size:17px;font-weight:300;opacity:.4;}
+#viz-empty .empty-sub{font-size:11px;opacity:.3;max-width:240px;line-height:1.6;}
+#viz-loading{position:absolute;inset:0;display:none;align-items:center;justify-content:center;gap:10px;background:rgba(14,15,17,.75);font-size:12px;color:var(--muted);z-index:15;backdrop-filter:blur(3px);}
+#viz-loading.show{display:flex;}
+
+/* ── TTL progress bar under a query point ────────────────────────── */
+#viz-ttl-bar-wrap{
+  position:absolute;bottom:16px;left:50%;transform:translateX(-50%);
+  display:none;
+  width:160px;flex-direction:column;align-items:center;gap:4px;
+  pointer-events:none;z-index:25;
+}
+#viz-ttl-bar-wrap.show{display:flex;}
+#viz-ttl-label{font-size:9px;color:rgba(255,255,255,.5);letter-spacing:.06em;text-transform:uppercase;}
+#viz-ttl-bar{width:100%;height:2px;background:rgba(255,255,255,.12);border-radius:1px;overflow:hidden;}
+#viz-ttl-fill{height:100%;background:#fff;border-radius:1px;transition:width .5s linear;}
+
+/* ── Reduction indicator ─────────────────────────────────────────── */
+#viz-method-badge{
+  position:absolute;bottom:14px;right:16px;
+  font-size:9px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);opacity:.4;pointer-events:none;
+}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <header>
+    <div class="logo">IAP <span>— intelligent archiving</span></div>
+  </header>
+
+  <nav>
+    <div class="nav-item active" data-page="storage" onclick="switchPage('storage',this)">
+      <span class="nav-icon">⬆</span><span class="nav-label">Storage</span>
+    </div>
+    <div class="nav-item" data-page="query" onclick="switchPage('query',this)">
+      <span class="nav-icon">⌕</span><span class="nav-label">Query</span>
+    </div>
+    <div class="nav-item" data-page="viz" onclick="switchPage('viz',this)">
+      <span class="nav-icon">⬡</span><span class="nav-label">Visualize</span>
+    </div>
+  </nav>
+
+  <main id="main-panel">
+
+    <!-- ════════ STORAGE PAGE ════════ -->
+    <section class="page active" id="page-storage">
+      <h1 class="page-title">Index a <em>document</em></h1>
+      <div class="steps">
+        <div class="step active" id="step-upload"><div class="step-dot">1</div><div class="step-label">Upload</div></div>
+        <div class="step" id="step-ocr"><div class="step-dot">2</div><div class="step-label">OCR</div></div>
+        <div class="step" id="step-review"><div class="step-dot">3</div><div class="step-label">Review</div></div>
+        <div class="step" id="step-index"><div class="step-dot">4</div><div class="step-label">Index</div></div>
+      </div>
+      <div class="card">
+        <div class="card-label">OCR Pipeline Options</div>
+        <div class="ocr-options-grid" id="ocrOptionsGrid">
+          <label class="ocr-option active" id="opt-orientation">
+            <input type="checkbox" name="use_doc_orientation_classify" checked/>
+            <div class="ocr-toggle">✓</div>
+            <div class="ocr-text"><span class="opt-name">Orientation Correction</span><span class="opt-desc">Auto-detect &amp; fix rotated scans</span></div>
+          </label>
+          <label class="ocr-option active" id="opt-unwarp">
+            <input type="checkbox" name="use_doc_unwarping" checked/>
+            <div class="ocr-toggle">✓</div>
+            <div class="ocr-text"><span class="opt-name">Perspective Unwarp</span><span class="opt-desc">Correct curved / photographed documents</span></div>
+          </label>
+          <label class="ocr-option active" id="opt-layout">
+            <input type="checkbox" name="use_layout_detection" checked/>
+            <div class="ocr-toggle">✓</div>
+            <div class="ocr-text"><span class="opt-name">Layout Detection</span><span class="opt-desc">Identify titles, paragraphs, tables</span></div>
+          </label>
+          <label class="ocr-option active" id="opt-ocr-images">
+            <input type="checkbox" name="use_ocr_for_image_block" checked/>
+            <div class="ocr-toggle">✓</div>
+            <div class="ocr-text"><span class="opt-name">OCR Inside Images</span><span class="opt-desc">Run text recognition on image blocks</span></div>
+          </label>
+          <label class="ocr-option active" id="opt-format">
+            <input type="checkbox" name="format_block_content" checked/>
+            <div class="ocr-toggle">✓</div>
+            <div class="ocr-text"><span class="opt-name">Format Block Content</span><span class="opt-desc">Clean &amp; normalise extracted text</span></div>
+          </label>
+          <label class="ocr-option" id="opt-merge-layout">
+            <input type="checkbox" name="merge_layout_blocks"/>
+            <div class="ocr-toggle"></div>
+            <div class="ocr-text"><span class="opt-name">Merge Layout Blocks</span><span class="opt-desc">Combine adjacent elements (experimental)</span></div>
+          </label>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label">Document</div>
+        <div class="drop-zone" id="dropZone">
+          <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png,.tif,.tiff"/>
+          <div class="drop-icon">⬆</div>
+          <div class="drop-text"><strong>Drop your file here</strong> or click to browse<br/><span style="font-size:11px;margin-top:4px;display:block;">PDF · JPG · PNG · TIFF</span></div>
+        </div>
+      </div>
+      <div class="status-bar" id="storeStatus"></div>
+      <div class="review-section" id="reviewSection">
+        <div class="card">
+          <div class="card-label">OCR Output — Review &amp; Correct</div>
+          <div class="review-hint">Each block shows its type and extracted plain text. Click to edit. HTML and markdown have been stripped.</div>
+          <br/>
+          <div class="review-split">
+            <div>
+              <div class="review-pane-label">Document preview</div>
+              <div class="review-doc-preview" id="reviewDocPreview"><div class="review-doc-placeholder">Preview will appear here</div></div>
+            </div>
+            <div>
+              <div class="review-pane-label">Extracted blocks <span id="blockCount" style="color:var(--muted);"></span></div>
+              <div class="ocr-blocks-wrap" id="ocrBlocksWrap"></div>
+            </div>
+          </div>
+          <br/>
+          <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;align-items:center;">
+            <button class="btn btn-primary" id="confirmBtn" onclick="confirmOCR()">✓ &nbsp;Confirm &amp; Index</button>
+            <button class="btn btn-ghost" onclick="resetStorage()">✕ &nbsp;Start over</button>
+            <span id="blockSummary" style="font-size:11px;color:var(--muted);margin-left:4px;"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════ QUERY PAGE ════════ -->
+    <section class="page" id="page-query">
+      <h1 class="page-title">Search the <em>archive</em></h1>
+      <div class="card">
+        <div class="card-label">Query</div>
+        <div class="query-wrap">
+          <input class="query-input" id="queryInput" type="text" placeholder="What are the payment terms in the Q3 contract?" onkeydown="if(event.key==='Enter') runQuery()"/>
+          <button class="btn btn-primary" id="queryBtn" onclick="runQuery()">Search</button>
+        </div>
+      </div>
+      <div class="status-bar" id="queryStatus"></div>
+      <div id="resultsList" class="results-list"></div>
+    </section>
+
+    <!-- ════════ VISUALIZATION PAGE ════════ -->
+    <section class="page" id="page-viz">
+      <div id="viz-topbar">
+        <h1 class="page-title">Embedding <em>space</em></h1>
+
+        <div id="viz-stats">
+          <div class="stat-item" id="stat-chunks-item">
+            <span id="stat-c" style="color:var(--text);">0 chunks</span>
+          </div>
+          <div class="stat-item" id="stat-docs-item" style="display:none;">
+            <span id="stat-d" style="color:var(--muted);"></span>
+          </div>
+        </div>
+
+        <!-- Per-document colour legend -->
+        <div id="viz-legend"></div>
+
+        <span id="viz-hint">drag · scroll</span>
+        <button class="btn btn-ghost" style="padding:7px 14px;" onclick="loadVizPoints()" title="Refresh">↺</button>
+        <button class="btn btn-danger" style="padding:7px 14px;" onclick="clearVizStore()">✕ Clear</button>
+      </div>
+
+      <div id="viz-canvas-wrap">
+        <canvas id="viz-canvas"></canvas>
+
+        <!-- Query flash banner -->
+        <div id="viz-query-flash">
+          <div class="qf-dot"></div>
+          <span id="qf-text"></span>
+        </div>
+
+        <!-- Tooltip -->
+        <div id="viz-tooltip">
+          <div class="tt-badge chunk" id="tt-badge">CHUNK</div>
+          <div class="tt-label" id="tt-label"></div>
+          <div class="tt-doc"  id="tt-doc"></div>
+          <div class="tt-meta" id="tt-meta"></div>
+          <div class="tt-ttl"  id="tt-ttl" style="display:none;"></div>
+        </div>
+
+        <!-- Empty state -->
+        <div id="viz-empty">
+          <div class="big-icon">⬡</div>
+          <div class="empty-title">Nothing to visualize yet</div>
+          <div class="empty-sub">Index a document — each chunk will appear as a coloured cluster in 3D space.</div>
+        </div>
+
+        <!-- Loading -->
+        <div id="viz-loading">
+          <div class="spinner" style="border-color:var(--muted);border-top-color:transparent;"></div>
+          <span>Computing UMAP layout…</span>
+        </div>
+
+        <!-- TTL bar for active query -->
+        <div id="viz-ttl-bar-wrap">
+          <div id="viz-ttl-label">Query fades in <span id="viz-ttl-secs">—</span>s</div>
+          <div id="viz-ttl-bar"><div id="viz-ttl-fill" style="width:100%;"></div></div>
+        </div>
+
+        <!-- Method badge -->
+        <div id="viz-method-badge">UMAP (3D)</div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   Config
+   ═══════════════════════════════════════════════════════════════════ */
+const API = '';
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+/* ═══════════════════════════════════════════════════════════════════
+   Navigation
+   ═══════════════════════════════════════════════════════════════════ */
+function switchPage(name, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  el.classList.add('active');
+  const main = document.getElementById('main-panel');
+  if (name === 'viz') { main.classList.add('viz-active'); initViz(); loadVizPoints(); }
+  else                { main.classList.remove('viz-active'); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Status / Steps
+   ═══════════════════════════════════════════════════════════════════ */
+function showStatus(id, type, msg, spin=false) {
+  const el = document.getElementById(id);
+  el.className = 'status-bar ' + type + ' show';
+  el.innerHTML = (spin ? '<div class="spinner"></div>' : '') + '<span>' + msg + '</span>';
+}
+function hideStatus(id) { document.getElementById(id).classList.remove('show'); }
+function setStep(s) {
+  const order = ['step-upload','step-ocr','step-review','step-index'];
+  const idx = order.indexOf(s);
+  order.forEach((id,i) => {
+    document.getElementById(id).className = 'step'+(i<idx?' done':i===idx?' active':'');
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   OCR options
+   ═══════════════════════════════════════════════════════════════════ */
+document.querySelectorAll('.ocr-option').forEach(label => {
+  label.addEventListener('click', () => {
+    const cb = label.querySelector('input'); cb.checked = !cb.checked;
+    const tog = label.querySelector('.ocr-toggle');
+    label.classList.toggle('active', cb.checked);
+    tog.textContent = cb.checked ? '✓' : '';
+  });
+});
+function getOcrOptions() {
+  const o = {};
+  document.querySelectorAll('.ocr-option input').forEach(cb => { o[cb.name] = cb.checked; });
+  return o;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Storage page
+   ═══════════════════════════════════════════════════════════════════ */
+let _docId=null,_ocrJson=null,_fileBytes=null,_fileSuffix=null;
+const dz=document.getElementById('dropZone'), fi=document.getElementById('fileInput');
+dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('drag-over');});
+dz.addEventListener('dragleave',()=>dz.classList.remove('drag-over'));
+dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('drag-over');if(e.dataTransfer.files.length)handleFile(e.dataTransfer.files[0]);});
+fi.addEventListener('change',()=>{if(fi.files.length)handleFile(fi.files[0]);});
+
+const IMAGE_LABELS = new Set(['image','header_image','footer_image']);
+function badgeClass(l){const m={text:'badge-text',doc_title:'badge-doc_title',paragraph_title:'badge-paragraph_title',image:'badge-image',header_image:'badge-image',header:'badge-header',footer:'badge-header',table:'badge-table'};return m[l]||'badge-other';}
+function cleanContent(raw){if(!raw)return'';let t=raw.replace(/<[^>]+>/g,' ').replace(/!\[.*?\]\(.*?\)/g,' ').replace(/^#+\s*/gm,'');t=t.replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'");return t.split('\n').map(l=>l.trim()).filter(Boolean).join('\n').trim();}
+
+async function handleFile(file) {
+  document.getElementById('reviewSection').classList.remove('show');
+  _docId=_ocrJson=_fileBytes=_fileSuffix=null;
+  setStep('step-upload');
+  showStatus('storeStatus','info','Uploading to Ceph and running OCR…',true);
+  const form=new FormData();
+  form.append('file',file);
+  form.append('ocr_options',JSON.stringify(getOcrOptions()));
+  _fileSuffix=file.name.split('.').pop().toLowerCase();
+  _fileBytes=await file.arrayBuffer();
+  let data;
+  try{
+    setStep('step-ocr');
+    const res=await fetch(API+'/api/index/upload',{method:'POST',body:form});
+    if(!res.ok){const e=await res.json().catch(()=>({detail:res.statusText}));throw new Error(e.detail||res.statusText);}
+    data=await res.json();
+  }catch(e){showStatus('storeStatus','error','Error: '+e.message);setStep('step-upload');return;}
+  _docId=data.document_id;_ocrJson=data.ocr_json;
+  buildOcrBlocksUI(data.ocr_json);
+  await renderReviewPreview(_fileBytes,_fileSuffix);
+  setStep('step-review');hideStatus('storeStatus');
+  document.getElementById('reviewSection').classList.add('show');
+}
+
+function buildOcrBlocksUI(ocrJson){
+  const wrap=document.getElementById('ocrBlocksWrap');
+  const count=document.getElementById('blockCount');
+  wrap.innerHTML='';
+  const blocks=(ocrJson||{}).parsing_res_list||[];
+  blocks.forEach((block,idx)=>{
+    const label=block.block_label||'unknown';
+    const cleaned=cleanContent(block.block_content||'');
+    const isImage=IMAGE_LABELS.has(label);
+    if(!cleaned&&!isImage)return;
+    const row=document.createElement('div');row.className='ocr-block';row.dataset.idx=idx;
+    const meta=document.createElement('div');meta.className='ocr-block-meta';
+    const badge=document.createElement('span');badge.className='ocr-block-badge '+badgeClass(label);badge.textContent=label.replace(/_/g,' ');meta.appendChild(badge);
+    if(block.page_index!=null){const pg=document.createElement('span');pg.className='ocr-block-page';pg.textContent='p.'+block.page_index;meta.appendChild(pg);}
+    row.appendChild(meta);
+    if(isImage&&!cleaned){const note=document.createElement('div');note.className='ocr-image-note';note.textContent='[image block — no extractable text]';row.appendChild(note);}
+    else if(cleaned){const ta=document.createElement('textarea');ta.className='ocr-block-content';ta.value=cleaned;ta.dataset.blockIdx=idx;ta.rows=Math.max(1,Math.min(8,cleaned.split('\n').length));ta.addEventListener('input',function(){this.style.height='auto';this.style.height=this.scrollHeight+'px';});row.appendChild(ta);}
+    wrap.appendChild(row);
+  });
+  count.textContent='('+blocks.length+' blocks)';
+  const ts=blocks.filter(b=>!IMAGE_LABELS.has(b.block_label)).length;
+  document.getElementById('blockSummary').textContent=ts+' text, '+blocks.filter(b=>IMAGE_LABELS.has(b.block_label)).length+' image blocks';
+}
+
+function buildCorrectedOcrJson(){
+  if(!_ocrJson)return null;
+  const updated=JSON.parse(JSON.stringify(_ocrJson));
+  document.querySelectorAll('#ocrBlocksWrap .ocr-block-content').forEach(ta=>{
+    const idx=parseInt(ta.dataset.blockIdx,10);
+    if(!isNaN(idx)&&updated.parsing_res_list[idx])updated.parsing_res_list[idx].block_content=ta.value;
+  });
+  return updated;
+}
+
+async function renderReviewPreview(buffer,suffix){
+  const c=document.getElementById('reviewDocPreview');c.innerHTML='';
+  if(suffix==='pdf'){
+    try{const pdf=await pdfjsLib.getDocument({data:buffer}).promise;const page=await pdf.getPage(1);const nv=page.getViewport({scale:1});const sc=Math.min(c.clientWidth||500,560)/nv.width;const vp=page.getViewport({scale:sc});const cv=document.createElement('canvas');cv.width=vp.width;cv.height=vp.height;await page.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;c.appendChild(cv);}
+    catch{c.innerHTML='<div class="review-doc-placeholder">Could not render PDF.</div>';}
+  }else if(['jpg','jpeg','png','tif','tiff'].includes(suffix)){
+    const blob=new Blob([buffer],{type:'image/'+(suffix==='jpg'?'jpeg':suffix)});const img=new Image();img.src=URL.createObjectURL(blob);img.style.maxWidth='100%';c.appendChild(img);
+  }else{c.innerHTML='<div class="review-doc-placeholder">No preview.</div>';}
+}
+
+async function confirmOCR(){
+  if(!_docId||!_ocrJson)return;
+  const corrected=buildCorrectedOcrJson();
+  document.getElementById('confirmBtn').disabled=true;
+  setStep('step-index');showStatus('storeStatus','info','Chunking, saving to Ceph, indexing…',true);
+  try{
+    const res=await fetch(API+'/api/index/confirm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({document_id:_docId,ocr_json:corrected})});
+    if(!res.ok){const e=await res.json().catch(()=>({detail:res.statusText}));throw new Error(e.detail||res.statusText);}
+    const data=await res.json();
+    document.getElementById('reviewSection').classList.remove('show');
+    showStatus('storeStatus','success','✓ Indexed — '+data.chunks_indexed+' chunks in OpenSearch &amp; Ceph "chunks" bucket');
+    ['step-upload','step-ocr','step-review','step-index'].forEach(id=>{document.getElementById(id).className='step done';});
+  }catch(e){showStatus('storeStatus','error','Indexing failed: '+e.message);setStep('step-review');}
+  finally{document.getElementById('confirmBtn').disabled=false;}
+}
+
+function resetStorage(){
+  _docId=_ocrJson=_fileBytes=_fileSuffix=null;
+  document.getElementById('reviewSection').classList.remove('show');
+  document.getElementById('reviewDocPreview').innerHTML='<div class="review-doc-placeholder">Preview will appear here</div>';
+  document.getElementById('ocrBlocksWrap').innerHTML='';
+  hideStatus('storeStatus');setStep('step-upload');document.getElementById('fileInput').value='';
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Query page
+   ═══════════════════════════════════════════════════════════════════ */
+async function runQuery(){
+  const q=document.getElementById('queryInput').value.trim();if(!q)return;
+  document.getElementById('queryBtn').disabled=true;
+  document.getElementById('resultsList').innerHTML='';
+  showStatus('queryStatus','info','Searching…',true);
+  let data;
+  try{
+    const res=await fetch(API+'/api/query',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:q,top_n:5})});
+    if(!res.ok){const e=await res.json().catch(()=>({detail:res.statusText}));throw new Error(e.detail||res.statusText);}
+    data=await res.json();
+  }catch(e){showStatus('queryStatus','error','Error: '+e.message);document.getElementById('queryBtn').disabled=false;return;}
+  hideStatus('queryStatus');document.getElementById('queryBtn').disabled=false;
+  if(!data.results||!data.results.length){document.getElementById('resultsList').innerHTML='<div class="empty-hint">No results found.</div>';return;}
+  renderResults(data.results);
+}
+
+function renderResults(results){
+  const list=document.getElementById('resultsList');list.innerHTML='';
+  results.forEach((r,i)=>{
+    const item=document.createElement('div');item.className='result-item';item.id='result-'+i;
+    const enc=encodeURIComponent(JSON.stringify(r));
+    item.innerHTML=`<div class="result-header" onclick="toggleResult(${i},'${enc}')"><div class="result-rank">${r.rank}</div><div class="result-info"><div class="result-doc">${escHtml(r.document_id)}</div><div class="result-meta">Page ${r.page} &middot; ${escHtml(r.chunk_id)}</div></div><div class="result-chevron">▾</div></div><div class="doc-viewer" id="viewer-${i}"><div class="viewer-loading" id="vload-${i}"><div class="spinner"></div><span>Loading…</span></div></div>`;
+    list.appendChild(item);
+  });
+}
+
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+const _openResults=new Set();
+async function toggleResult(idx,enc){
+  const result=JSON.parse(decodeURIComponent(enc));
+  const item=document.getElementById('result-'+idx);const viewer=document.getElementById('viewer-'+idx);
+  if(_openResults.has(idx)){_openResults.delete(idx);item.classList.remove('open');return;}
+  _openResults.add(idx);item.classList.add('open');
+  if(viewer.dataset.loaded)return;viewer.dataset.loaded='1';
+  try{
+    const res=await fetch(API+'/api/document/'+encodeURIComponent(result.document_id));
+    if(!res.ok)throw new Error('Not found ('+res.status+')');
+    const ct=res.headers.get('Content-Type')||'';const bytes=await res.arrayBuffer();
+    const vl=document.getElementById('vload-'+idx);if(vl)vl.remove();
+    if(ct.includes('pdf'))await renderPDF(viewer,bytes,result.page,result.bbox);
+    else if(ct.includes('image'))renderImage(viewer,bytes,ct,result.bbox);
+    else viewer.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px">Unsupported type.</div>';
+  }catch(e){const vl=document.getElementById('vload-'+idx);if(vl)vl.remove();viewer.innerHTML='<div style="color:var(--danger);font-size:12px;padding:8px">'+escHtml(e.message)+'</div>';}
+}
+async function renderPDF(container,buffer,pageNum,bbox){
+  const pdf=await pdfjsLib.getDocument({data:buffer}).promise;const page=await pdf.getPage(pageNum||1);
+  const nv=page.getViewport({scale:1});const sc=Math.min(container.clientWidth||800,900)/nv.width;const vp=page.getViewport({scale:sc});
+  const cv=document.createElement('canvas');cv.width=vp.width;cv.height=vp.height;await page.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;
+  const wrap=document.createElement('div');wrap.className='doc-canvas-wrap';wrap.appendChild(cv);
+  if(bbox&&bbox.length===4&&(bbox[2]-bbox[0])>0){const[x0,y0,x1,y1]=bbox;const hl=document.createElement('div');hl.className='highlight-box';hl.style.cssText=`left:${x0*sc}px;top:${y0*sc}px;width:${(x1-x0)*sc}px;height:${(y1-y0)*sc}px`;wrap.appendChild(hl);setTimeout(()=>hl.scrollIntoView({behavior:'smooth',block:'center'}),300);}
+  container.appendChild(wrap);
+}
+function renderImage(container,buffer,contentType,bbox){
+  const blob=new Blob([buffer],{type:contentType});const img=new Image();
+  img.onload=()=>{
+    const wrap=document.createElement('div');wrap.className='doc-image-wrap';wrap.appendChild(img);
+    if(bbox&&bbox.length===4&&(bbox[2]-bbox[0])>0){const sx=(img.clientWidth||img.naturalWidth)/img.naturalWidth;const sy=(img.clientHeight||img.naturalHeight)/img.naturalHeight;const[x0,y0,x1,y1]=bbox;const hl=document.createElement('div');hl.className='highlight-box';hl.style.cssText=`left:${x0*sx}px;top:${y0*sy}px;width:${(x1-x0)*sx}px;height:${(y1-y0)*sy}px`;wrap.appendChild(hl);setTimeout(()=>hl.scrollIntoView({behavior:'smooth',block:'center'}),200);}
+    container.appendChild(wrap);
+  };
+  img.src=URL.createObjectURL(blob);img.style.maxWidth='100%';
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   3D VISUALIZATION
+   ═══════════════════════════════════════════════════════════════════
+   Design goals
+   ─────────────
+   1. Chunks:  permanent coloured spheres, one colour per document.
+               Cluster together because t-SNE preserves neighbourhoods.
+   2. Queries: large bright white sphere + ripple rings + flash banner.
+               Fades out when TTL expires (backend prunes store too).
+   3. Doc labels: floating text sprite above each cluster centroid.
+   4. Orbit: manual (no OrbitControls CDN needed for r128).
+   ═══════════════════════════════════════════════════════════════════ */
+let _sc=null,_ren=null,_cam=null,_vizInited=false;
+let _chunkMeshes=[],_queryMeshes=[],_labelSprites=[],_centroidHelpers=[];
+let _haloGroup=null,_ringGroup=null;
+let _currentPoints=[];
+let _activeQueryIds=new Set();
+
+const _orb={theta:.5,phi:1.1,radius:4,dragging:false,lastX:0,lastY:0,autoSpin:true};
+
+/* ── Init ─────────────────────────────────────────────────────────── */
+function initViz(){
+  if(_vizInited)return;_vizInited=true;
+  const wrap=document.getElementById('viz-canvas-wrap');
+  const canvas=document.getElementById('viz-canvas');
+
+  _ren=new THREE.WebGLRenderer({canvas,antialias:true});
+  _ren.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  _ren.setClearColor(0x0e0f11,1);
+
+  _sc=new THREE.Scene();
+  _sc.fog=new THREE.FogExp2(0x0e0f11,.12);
+
+  _cam=new THREE.PerspectiveCamera(50,wrap.clientWidth/wrap.clientHeight,.01,60);
+  _updateCam();
+
+  // Lights
+  _sc.add(new THREE.AmbientLight(0xffffff,.2));
+  const pl=new THREE.PointLight(0xffffff,.8,20);pl.position.set(2,3,2);_sc.add(pl);
+  const pl2=new THREE.PointLight(0x4a9eff,.4,15);pl2.position.set(-2,-2,-2);_sc.add(pl2);
+
+  // Groups
+  _haloGroup=new THREE.Group();_sc.add(_haloGroup);
+  _ringGroup=new THREE.Group();_sc.add(_ringGroup);
+
+  // Scene furniture
+  _buildFurniture();
+
+  // Resize
+  _resizeRen();new ResizeObserver(_resizeRen).observe(wrap);
+
+  // Orbit controls (manual)
+  canvas.addEventListener('mousedown',e=>{_orb.dragging=true;_orb.lastX=e.clientX;_orb.lastY=e.clientY;_orb.autoSpin=false;});
+  window.addEventListener('mouseup',()=>{_orb.dragging=false;});
+  window.addEventListener('mousemove',e=>{
+    if(!_orb.dragging)return;
+    _orb.theta-=(e.clientX-_orb.lastX)*.007;_orb.lastX=e.clientX;
+    _orb.phi=Math.max(.1,Math.min(Math.PI-.1,_orb.phi-(e.clientY-_orb.lastY)*.007));_orb.lastY=e.clientY;
+    _updateCam();
+  });
+  canvas.addEventListener('wheel',e=>{e.preventDefault();_orb.radius=Math.max(1,Math.min(10,_orb.radius+e.deltaY*.006));_updateCam();},{passive:false});
+  let _lt=null;
+  canvas.addEventListener('touchstart',e=>{_lt=e.touches[0];_orb.autoSpin=false;},{passive:true});
+  canvas.addEventListener('touchmove',e=>{if(!_lt)return;const t=e.touches[0];_orb.theta-=(t.clientX-_lt.clientX)*.009;_orb.phi=Math.max(.1,Math.min(Math.PI-.1,_orb.phi-(t.clientY-_lt.clientY)*.009));_lt=t;_updateCam();},{passive:true});
+  canvas.addEventListener('touchend',()=>{_lt=null;});
+  let _spinT=null;canvas.addEventListener('mouseup',()=>{clearTimeout(_spinT);_spinT=setTimeout(()=>{_orb.autoSpin=true;},5000);});
+
+  // Raycaster for hover
+  const rc=new THREE.Raycaster();const mouse=new THREE.Vector2();
+  canvas.addEventListener('mousemove',e=>{
+    const r=canvas.getBoundingClientRect();
+    mouse.x=((e.clientX-r.left)/r.width)*2-1;
+    mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+    _handleHover(rc,mouse,e.clientX-r.left,e.clientY-r.top);
+  });
+  canvas.addEventListener('mouseleave',_hideTooltip);
+
+  // Render loop — also handles ring animations + TTL bar
+  const clock=new THREE.Clock();
+  (function loop(){
+    requestAnimationFrame(loop);
+    const dt=clock.getDelta();
+    if(_orb.autoSpin){_orb.theta+=.001;_updateCam();}
+    _animateRings(dt);
+    _updateTTLBar();
+    if(_ren&&_sc&&_cam)_ren.render(_sc,_cam);
+  })();
+
+  // Auto-refresh every 5s (short enough to show query TTL countdown clearly)
+  setInterval(()=>{if(document.getElementById('page-viz').classList.contains('active'))loadVizPoints(true);},5000);
+}
+
+function _updateCam(){if(!_cam)return;const{radius,phi,theta}=_orb;_cam.position.set(radius*Math.sin(phi)*Math.sin(theta),radius*Math.cos(phi),radius*Math.sin(phi)*Math.cos(theta));_cam.lookAt(0,0,0);}
+function _resizeRen(){const w=document.getElementById('viz-canvas-wrap');if(!w||!_ren||!_cam)return;_ren.setSize(w.clientWidth,w.clientHeight,false);_cam.aspect=w.clientWidth/w.clientHeight;_cam.updateProjectionMatrix();}
+
+function _buildFurniture(){
+  const am=new THREE.LineBasicMaterial({color:0x252830,transparent:true,opacity:.5});
+  [[-1.5,0,0,1.5,0,0],[0,-1.5,0,0,1.5,0],[0,0,-1.5,0,0,1.5]].forEach(([ax,ay,az,bx,by,bz])=>{
+    const g=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(ax,ay,az),new THREE.Vector3(bx,by,bz)]);
+    _sc.add(new THREE.Line(g,am));
+  });
+  const gh=new THREE.GridHelper(3,12,0x1c1e24,0x1c1e24);gh.position.y=-1.3;gh.material.transparent=true;gh.material.opacity=.4;_sc.add(gh);
+}
+
+/* ── t-SNE colour parse ───────────────────────────────────────────── */
+function _hexToColor(hex){const v=parseInt(hex.slice(1),16);return new THREE.Color(((v>>16)&255)/255,((v>>8)&255)/255,(v&255)/255);}
+
+/* ── Render points ─────────────────────────────────────────────────── */
+function _clearScene(){
+  [..._chunkMeshes,..._queryMeshes].forEach(m=>{_sc.remove(m);m.geometry.dispose();m.material.dispose();});
+  _chunkMeshes=[];_queryMeshes=[];
+  _labelSprites.forEach(s=>{_sc.remove(s);});_labelSprites=[];
+  _centroidHelpers.forEach(h=>{_sc.remove(h);});_centroidHelpers=[];
+  while(_haloGroup.children.length){const c=_haloGroup.children[0];_haloGroup.remove(c);if(c.geometry)c.geometry.dispose();if(c.material)c.material.dispose();}
+  while(_ringGroup.children.length){const c=_ringGroup.children[0];_ringGroup.remove(c);if(c.geometry)c.geometry.dispose();if(c.material)c.material.dispose();}
+}
+
+const _sGeo=new THREE.SphereGeometry(.028,14,14);
+const _sGeoQ=new THREE.SphereGeometry(.048,16,16);   // query sphere larger
+const _hGeo =new THREE.SphereGeometry(.048,10,10);
+const _hGeoQ=new THREE.SphereGeometry(.09, 10,10);
+const _rGeo =new THREE.RingGeometry(.06,.08,32);     // ripple ring
+
+function _buildPoints(points,centroids){
+  const empty=document.getElementById('viz-empty');
+  if(!points.length){empty.style.display='flex';return;}
+  empty.style.display='none';
+
+  points.forEach(pt=>{
+    const isQ=pt.kind==='query';
+    const col=_hexToColor(pt.colour);
+
+    if(isQ){
+      // ── Query sphere — bright white, larger ──────────────────────
+      const mat=new THREE.MeshStandardMaterial({color:0xffffff,emissive:0xffffff,emissiveIntensity:1.2,roughness:.1,metalness:0,transparent:true,opacity:.95});
+      const mesh=new THREE.Mesh(_sGeoQ,mat);mesh.position.set(pt.x,pt.y,pt.z);mesh.userData=pt;_sc.add(mesh);_queryMeshes.push(mesh);
+      // Halo
+      const halo=new THREE.Mesh(_hGeoQ,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.06,side:THREE.BackSide}));
+      halo.position.copy(mesh.position);_haloGroup.add(halo);
+      // Ripple rings — 3 rings with staggered delays
+      for(let i=0;i<3;i++){
+        const rm=new THREE.Mesh(_rGeo,new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.25-i*.07,side:THREE.DoubleSide}));
+        rm.position.copy(mesh.position);rm.rotation.x=Math.PI/2;
+        rm.userData={isRing:true,delay:i*.4,ttlRemaining:pt.ttl_remaining||60};
+        _ringGroup.add(rm);
+      }
+      // Drop line
+      const lm=new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:.12});
+      const lg=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(pt.x,pt.y,pt.z),new THREE.Vector3(pt.x,-1.3,pt.z)]);
+      _haloGroup.add(new THREE.Line(lg,lm));
+
+    } else {
+      // ── Chunk sphere — colour by document ───────────────────────
+      const mat=new THREE.MeshStandardMaterial({color:col,emissive:col,emissiveIntensity:.35,roughness:.3,metalness:.1,transparent:true,opacity:.88});
+      const mesh=new THREE.Mesh(_sGeo,mat);mesh.position.set(pt.x,pt.y,pt.z);mesh.userData=pt;_sc.add(mesh);_chunkMeshes.push(mesh);
+      // Soft halo
+      const halo=new THREE.Mesh(_hGeo,new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.06,side:THREE.BackSide}));
+      halo.position.copy(mesh.position);_haloGroup.add(halo);
+      // Drop line
+      const lm=new THREE.LineBasicMaterial({color:col.getHex(),transparent:true,opacity:.15});
+      const lg=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(pt.x,pt.y,pt.z),new THREE.Vector3(pt.x,-1.3,pt.z)]);
+      _haloGroup.add(new THREE.Line(lg,lm));
+    }
+  });
+
+  // ── Cluster labels (floating above each document centroid) ───────
+  centroids.forEach(c=>{
+    const sprite=_makeTextSprite(c.doc_id.split('_').slice(0,-1).join(' ')||c.doc_id, c.colour);
+    sprite.position.set(c.x, c.y+.18, c.z);
+    _sc.add(sprite);_labelSprites.push(sprite);
+
+    // Small disc marker at centroid
+    const ring=new THREE.Mesh(
+      new THREE.RingGeometry(.04,.055,24),
+      new THREE.MeshBasicMaterial({color:_hexToColor(c.colour).getHex(),transparent:true,opacity:.5,side:THREE.DoubleSide})
+    );
+    ring.position.set(c.x,c.y,c.z);ring.rotation.x=Math.PI/2;
+    _sc.add(ring);_centroidHelpers.push(ring);
+  });
+}
+
+/* ── Text sprite (canvas texture) ────────────────────────────────── */
+function _makeTextSprite(text,hexColor){
+  const canvas=document.createElement('canvas');canvas.width=256;canvas.height=48;
+  const ctx=canvas.getContext('2d');
+  ctx.font='bold 18px "DM Mono", monospace';
+  ctx.fillStyle=hexColor;
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillText(text,128,24);
+  const tex=new THREE.CanvasTexture(canvas);
+  const mat=new THREE.SpriteMaterial({map:tex,transparent:true,opacity:.75,depthTest:false});
+  const sprite=new THREE.Sprite(mat);sprite.scale.set(.55,.1,1);
+  return sprite;
+}
+
+/* ── Ripple ring animation ─────────────────────────────────────────── */
+let _ringTime=0;
+function _animateRings(dt){
+  _ringTime+=dt;
+  _ringGroup.children.forEach(ring=>{
+    if(!ring.userData.isRing)return;
+    const t=(_ringTime+ring.userData.delay)%1.5;
+    const s=1+t*.9;
+    ring.scale.set(s,s,1);
+    ring.material.opacity=Math.max(0,.28*(1-t/1.5));
+  });
+}
+
+/* ── TTL bar update ─────────────────────────────────────────────────── */
+let _ttlQueryPoints=[];
+function _updateTTLBar(){
+  if(!_ttlQueryPoints.length){document.getElementById('viz-ttl-bar-wrap').classList.remove('show');return;}
+  // Use the most recently issued query
+  const q=_ttlQueryPoints.reduce((a,b)=>(a.ttl_remaining<b.ttl_remaining?b:a));
+  const ttl=Math.max(0,q.ttl_remaining||0);
+  const pct=ttl/120*100;
+  document.getElementById('viz-ttl-fill').style.width=pct+'%';
+  document.getElementById('viz-ttl-secs').textContent=Math.round(ttl);
+  document.getElementById('viz-ttl-bar-wrap').classList.toggle('show',ttl>0);
+}
+
+/* ── Hover tooltip ─────────────────────────────────────────────────── */
+let _hoveredMesh=null;
+function _handleHover(rc,mouse,px,py){
+  rc.setFromCamera(mouse,_cam);
+  const allMeshes=[..._chunkMeshes,..._queryMeshes];
+  const hits=rc.intersectObjects(allMeshes,false);
+  if(hits.length){
+    const mesh=hits[0].object;
+    if(_hoveredMesh!==mesh){if(_hoveredMesh)_setGlow(_hoveredMesh,false);_hoveredMesh=mesh;_setGlow(mesh,true);}
+    _showTooltip(mesh.userData,px,py);
+  }else{
+    if(_hoveredMesh){_setGlow(_hoveredMesh,false);_hoveredMesh=null;}_hideTooltip();
+  }
+}
+function _setGlow(mesh,on){mesh.material.emissiveIntensity=on?(mesh.userData.kind==='query'?2.0:.9):( mesh.userData.kind==='query'?1.2:.35);mesh.scale.setScalar(on?1.3:1);}
+function _showTooltip(pt,px,py){
+  const tt=document.getElementById('viz-tooltip');
+  const wrap=document.getElementById('viz-canvas-wrap');
+  const ww=wrap.clientWidth,wh=wrap.clientHeight;
+  const badge=document.getElementById('tt-badge');badge.textContent=pt.kind.toUpperCase();badge.className='tt-badge '+(pt.kind==='query'?'query':'chunk');
+  if(pt.colour&&pt.kind!=='query'){badge.style.background='';badge.style.color=pt.colour;badge.style.borderColor=pt.colour+'44';}
+  else{badge.style.background='';badge.style.color='';badge.style.borderColor='';}
+  document.getElementById('tt-label').textContent=pt.label||'—';
+  const de=document.getElementById('tt-doc');de.textContent=pt.doc_id?'Doc: '+pt.doc_id:'';de.style.display=pt.doc_id?'block':'none';
+  const me=document.getElementById('tt-meta');
+  const meta=[];if(pt.page)meta.push('Page '+pt.page);if(pt.timestamp){try{meta.push(new Date(pt.timestamp).toLocaleString());}catch{}}
+  me.textContent=meta.join(' · ');me.style.display=meta.length?'block':'none';
+  const te=document.getElementById('tt-ttl');
+  if(pt.kind==='query'&&pt.ttl_remaining!=null){te.textContent='Fades in '+Math.round(pt.ttl_remaining)+'s';te.style.display='block';}else{te.style.display='none';}
+  const TW=295,TH=100;let left=px+16,top=py+16;
+  if(left+TW>ww-8)left=px-TW-8;if(top+TH>wh-8)top=py-TH-8;
+  tt.style.left=Math.max(8,left)+'px';tt.style.top=Math.max(8,top)+'px';tt.classList.add('show');
+}
+function _hideTooltip(){document.getElementById('viz-tooltip').classList.remove('show');}
+
+/* ── Legend ─────────────────────────────────────────────────────────── */
+function _buildLegend(docColours,hasQuery){
+  const leg=document.getElementById('viz-legend');leg.innerHTML='';
+  if(hasQuery){
+    const qi=document.createElement('div');qi.className='legend-item';
+    qi.innerHTML='<div class="legend-query"></div><span style="color:rgba(255,255,255,.7);">Query (120s)</span>';leg.appendChild(qi);
+  }
+  Object.entries(docColours).forEach(([docId,colour])=>{
+    const li=document.createElement('div');li.className='legend-item';
+    const name=docId.split('_').slice(0,-1).join(' ')||docId;
+    li.innerHTML=`<div class="legend-dot" style="background:${colour};box-shadow:0 0 5px ${colour}66;"></div><span style="color:${colour};">${escHtml(name)}</span>`;
+    leg.appendChild(li);
+  });
+}
+
+/* ── Query flash banner ─────────────────────────────────────────────── */
+let _qfTimer=null;
+function _showQueryFlash(label){
+  clearTimeout(_qfTimer);
+  const el=document.getElementById('viz-query-flash');
+  document.getElementById('qf-text').textContent='"'+label+'"';
+  el.classList.add('show');
+  _qfTimer=setTimeout(()=>el.classList.remove('show'),4000);
+}
+
+/* ── API calls ──────────────────────────────────────────────────────── */
+let _lastQueryIds=new Set();
+
+async function loadVizPoints(silent=false){
+  if(!silent)document.getElementById('viz-loading').classList.add('show');
+  try{
+    const res=await fetch(API+'/api/viz/points');if(!res.ok)return;
+    const data=await res.json();
+    const pts=data.points||[];const cents=data.centroids||[];const docColours=data.doc_colours||{};
+
+    _currentPoints=pts;
+    _ttlQueryPoints=pts.filter(p=>p.kind==='query'&&(p.ttl_remaining||0)>0);
+
+    // Detect new queries since last load → show flash banner
+    const newQIds=new Set(pts.filter(p=>p.kind==='query').map(p=>p.id));
+    const addedQ=pts.filter(p=>p.kind==='query'&&!_lastQueryIds.has(p.id));
+    if(addedQ.length)_showQueryFlash(addedQ[addedQ.length-1].label);
+    _lastQueryIds=newQIds;
+
+    _clearScene();
+    _buildPoints(pts,cents);
+    _buildLegend(docColours,pts.some(p=>p.kind==='query'));
+    _updateStats(pts,Object.keys(docColours).length);
+  }catch(e){console.warn('viz load error',e);}
+  finally{document.getElementById('viz-loading').classList.remove('show');}
+}
+
+function _updateStats(pts,nDocs){
+  const nC=pts.filter(p=>p.kind==='chunk').length;
+  document.getElementById('stat-c').textContent=nC+' chunk'+(nC!==1?'s':'');
+  const dw=document.getElementById('stat-docs-item');
+  if(nDocs>0){dw.style.display='flex';document.getElementById('stat-d').textContent=nDocs+' doc'+(nDocs!==1?'s':'');}
+  else dw.style.display='none';
+}
+
+async function clearVizStore(){
+  if(!confirm('Clear all stored embeddings?\nThis cannot be undone.'))return;
+  try{
+    await fetch(API+'/api/viz/clear',{method:'DELETE'});
+    _clearScene();_currentPoints=[];_ttlQueryPoints=[];_lastQueryIds=new Set();
+    _buildLegend({},false);_updateStats([],0);
+    document.getElementById('viz-empty').style.display='flex';
+  }catch{}
+}
+</script>
+</body>
+</html>

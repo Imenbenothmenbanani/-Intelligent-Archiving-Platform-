@@ -1,0 +1,275 @@
+.navigation-bar {
+  margin-bottom: 20px;
+}
+
+.back-button {
+  background-color: #2c3e50;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.back-button:hover {
+  background-color: #34495e;
+}
+
+.query-container {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.query-card {
+  margin-bottom: 20px;
+}
+
+.query-form {
+  margin-bottom: 20px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.button-group {
+  text-align: center;
+  margin-top: 20px;
+}
+
+.search-button {
+  padding: 10px 20px;
+  font-size: 16px;
+}
+
+.loading-indicator {
+  text-align: center;
+  margin: 20px 0;
+}
+
+.results-section {
+  margin-top: 20px;
+  padding: 15px;
+  border-radius: 4px;
+  background-color: #f5f5f5;
+}
+
+.result-summary {
+  margin-bottom: 10px;
+}
+
+.result-summary p {
+  margin: 5px 0;
+}
+
+/* Documents list */
+.documents-list {
+  margin-top: 20px;
+}
+
+.document-card {
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 15px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.document-card:hover {
+  border-color: #2196f3;
+  box-shadow: 0 4px 12px rgba(33, 150, 243, 0.2);
+  transform: translateY(-2px);
+}
+
+.document-card.selected {
+  border-color: #2196f3;
+  background-color: #e3f2fd;
+  box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+}
+
+.document-header {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 10px;
+}
+
+.document-rank {
+  background: #2196f3;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-weight: bold;
+  min-width: 40px;
+  text-align: center;
+}
+
+.document-id {
+  flex: 1;
+  font-weight: 600;
+  color: #333;
+}
+
+.document-score {
+  color: #666;
+  font-size: 0.9em;
+}
+
+.document-preview {
+  margin-bottom: 10px;
+  padding: 10px;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+}
+
+.highlighted-text {
+  color: #555;
+  line-height: 1.6;
+}
+
+.document-actions {
+  text-align: right;
+}
+
+.view-button {
+  background-color: #4caf50;
+  color: white;
+  border: none;
+}
+
+.view-button:hover {
+  background-color: #45a049;
+}
+
+/* Document Viewer */
+.document-viewer {
+  margin-top: 30px;
+  background: white;
+  border: 2px solid #2196f3;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.viewer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.viewer-header h3 {
+  margin: 0;
+  color: #2196f3;
+}
+
+.close-button {
+  background-color: #f44336;
+  color: white;
+  border: none;
+}
+
+.close-button:hover {
+  background-color: #da190b;
+}
+
+.viewer-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.document-image-section {
+  border-right: 1px solid #e0e0e0;
+  padding-right: 20px;
+}
+
+.document-image-section h4 {
+  margin: 0 0 15px 0;
+  color: #2c3e50;
+}
+
+.image-frame {
+  background: #f5f5f5;
+  border: 2px solid #ddd;
+  border-radius: 8px;
+  overflow: hidden;
+  min-height: 400px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.document-image {
+  max-width: 100%;
+  max-height: 600px;
+  object-fit: contain;
+}
+
+.image-placeholder {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+}
+
+.image-placeholder i {
+  font-size: 4rem;
+  margin-bottom: 10px;
+}
+
+.highlighted-chunk-section h4 {
+  margin: 0 0 15px 0;
+  color: #2c3e50;
+}
+
+.highlighted-text-box {
+  background-color: #ffff00;
+  padding: 20px;
+  border-radius: 8px;
+  border-left: 5px solid #ffeb3b;
+  font-size: 15px;
+  line-height: 1.8;
+  min-height: 200px;
+  max-height: 600px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.result-message {
+  padding: 10px;
+  border-radius: 4px;
+  background-color: #e8f5e8;
+  color: #2e7d32;
+}
+
+.result-message.error {
+  background-color: #ffebee;
+  color: #c62828;
+}
+
+.error-section {
+  margin-top: 20px;
+}
+
+.error-message {
+  color: #c62828;
+  padding: 10px;
+  border-radius: 4px;
+  background-color: #ffebee;
+}

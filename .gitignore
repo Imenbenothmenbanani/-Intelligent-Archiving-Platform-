@@ -1,0 +1,12 @@
+.env
+__pycache__
+.venv
+chunk_service/chunks/
+chunk_service/data/
+ocr_output/
+test/
+
+chunk_tmp
+ocr_tmp
+viz_store.json
+Qwen.md
