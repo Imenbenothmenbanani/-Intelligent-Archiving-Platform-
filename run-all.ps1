@@ -6,7 +6,7 @@
       ./run-all.ps1 -SetupOnly      # install deps only, don't start services
       ./run-all.ps1 -Cuda cu126     # override the torch CUDA wheel (default: cu128)
 
-  Requirements: Docker Desktop, JDK 21, Maven, Node.js 18+, Python 3.11.
+  Requirements: Docker Desktop, JDK 21, Node.js 18+, Python 3.11. (Maven not needed - uses the bundled mvnw wrapper.)
   RTX 50-series (Blackwell) needs the cu128 torch wheels (PyTorch >= 2.7) -> default below.
 #>
 param(
@@ -17,6 +17,11 @@ param(
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 Set-Location $root
+
+# Allow npm.ps1 / ng.ps1 to run in this and future sessions for the current user.
+try { Set-ExecutionPolicy -Scope CurrentUser RemoteSigned -Force } catch {}
+# Use the .cmd shims so this works regardless of script execution policy.
+$npm = "npm.cmd"
 
 Write-Host "==> Repo root: $root" -ForegroundColor Cyan
 
@@ -53,13 +58,13 @@ if (-not (Test-Path "$root\.venv-pipeline")) { python -m venv "$root\.venv-pipel
 # 4. Frontend deps
 Write-Host "==> npm install (frontend)" -ForegroundColor Cyan
 Push-Location "$root\app\frontend-angular"
-npm install
+& $npm install
 Pop-Location
 
 # 5. Backend build
 Write-Host "==> Building backend" -ForegroundColor Cyan
 Push-Location "$root\app\backend-springboot"
-mvn -q -DskipTests package
+.\mvnw.cmd -q -DskipTests package
 Pop-Location
 
 if ($SetupOnly) { Write-Host "Setup complete (-SetupOnly). Skipping start." -ForegroundColor Green; exit 0 }
@@ -78,7 +83,7 @@ function Start-In-Window($title, $command) {
 Start-In-Window "Pipeline :8082" ".\.venv-pipeline\Scripts\python app\pipeline_service\main.py"
 Start-Sleep -Seconds 3
 Start-In-Window "Backend :8081"  "cd app\backend-springboot; java -jar target\backend-springboot-0.0.1-SNAPSHOT.jar"
-Start-In-Window "Frontend :4200" "cd app\frontend-angular; npm start"
+Start-In-Window "Frontend :4200" "cd app\frontend-angular; npm.cmd start"
 
 Write-Host ""
 Write-Host "All started. Open http://localhost:4200" -ForegroundColor Green
