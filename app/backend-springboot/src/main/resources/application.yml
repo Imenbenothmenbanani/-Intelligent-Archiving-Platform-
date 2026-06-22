@@ -9,7 +9,7 @@ spring:
 
 app:
   storage:
-    scan-folder: C:/app/scanned-documents
+    scan-folder: ${APP_STORAGE_SCAN_FOLDER:${java.io.tmpdir}/scanned-documents}
     docs-bucket: docs
     chunks-bucket: chunks
   cors:
